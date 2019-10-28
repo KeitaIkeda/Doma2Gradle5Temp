@@ -1,0 +1,93 @@
+plugins {
+	id 'org.springframework.boot' version '2.1.10.BUILD-SNAPSHOT'
+	id 'io.spring.dependency-management' version '1.0.8.RELEASE'
+	id 'java'
+	id 'eclipse'
+	id 'eclipse-wtp'
+}
+
+group = 'voyage.ikeda'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '1.8'
+
+// JavaクラスとSQLファイルの出力先ディレクトリを同じにする
+processResources.destinationDir = compileJava.destinationDir
+compileJava.dependsOn processResources
+compileJava.options.compilerArgs = ['-Adoma.dao.subpackage=impl', '-Adoma.dao.suffix=Impl']
+
+task copyDomaResources(type: Sync)  {
+    from sourceSets.main.resources.srcDirs
+    into compileJava.destinationDir
+    include 'doma.compile.config'
+    include 'META-INF/**/*.sql'
+    include 'META-INF/**/*.script'
+}
+
+eclipse {
+    classpath {
+         defaultOutputDir = file('bin')
+        file {
+            beforeMerged { classpath ->
+                classpath.entries.clear()
+            }
+            whenMerged { classpath ->
+                classpath.entries.findAll { it instanceof org.gradle.plugins.ide.eclipse.model.SourceFolder && it.path.startsWith("src/main/") }*.output = "bin"
+                classpath.entries.findAll { it instanceof org.gradle.plugins.ide.eclipse.model.SourceFolder && it.path.startsWith("src/test/") }*.output = "bin"
+            }
+        }
+    }
+    project {
+        natures 'org.eclipse.wst.jsdt.core.jsNature'
+    }
+    jdt {
+        file {
+            withProperties {properties ->
+                properties.setProperty('org.eclipse.jdt.core.compiler.processAnnotations', 'enabled')
+            }
+        }
+    }
+    wtp {
+        facet {
+            facet name: 'jst.web', version: '3.0'
+            facet type: org.gradle.plugins.ide.eclipse.model.Facet.FacetType.fixed, name: 'wst.jsdt.web'
+            facet name: 'wst.jsdt.web', version: '1.0'
+        }
+    }
+}
+
+eclipseJdt {
+    doFirst {
+        def f = file('.factorypath')
+        def writer = new FileWriter(f)
+
+        def xml = new groovy.xml.MarkupBuilder(writer)
+        xml.setDoubleQuotes(true)
+        xml.'factorypath'() {
+            def domaJar = configurations.compile.find {
+                it.name.startsWith('doma-2')
+            }
+
+            'factorypathentry'(kind: 'PLUGIN', id: 'org.eclipse.jst.ws.annotations.core', enabled: true, runInBatchMode: false)
+            'factorypathentry'(kind: 'EXTJAR', id: domaJar, enabled: true, runInBatchMode: false)
+        }
+    }
+}
+
+repositories {
+	mavenCentral()
+	maven { url 'https://repo.spring.io/milestone' }
+	maven { url 'https://repo.spring.io/snapshot' }
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter'
+	
+	// Doma 
+    implementation 'org.seasar.doma.boot:doma-spring-boot-starter:1.1.1'
+	implementation 'org.seasar.doma:doma:2.16.1'
+	annotationProcessor 'org.seasar.doma:doma:2.16.1'
+    // RDB 
+    implementation 'org.postgresql:postgresql:42.2.2' 
+	
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}

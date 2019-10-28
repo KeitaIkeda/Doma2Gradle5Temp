@@ -1,0 +1,1 @@
+SELECT user_id,user_name_e,email_addr FROM ysa.mst_user WHERE user_id = 'PJ023101';
